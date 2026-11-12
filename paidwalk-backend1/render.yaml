@@ -1,0 +1,20 @@
+# Render free deploy for the PaidWalk backend + web app.
+# Render reads this automatically when you create a "Blueprint" from your repo.
+services:
+  - type: web
+    name: paidwalk-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn -w 2 -b 0.0.0.0:$PORT wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      - key: PAIDWALK_SECRET
+        generateValue: true          # Render makes a strong random secret
+      - key: PAIDWALK_SANDBOX
+        value: "1"                    # keep sandbox on until SMS + payouts are set up
+      - key: PAIDWALK_PAYOUT
+        value: "sandbox"
+      - key: PAIDWALK_DB
+        value: "/tmp/paidwalk.db"     # note: free plan storage resets on redeploy/sleep
