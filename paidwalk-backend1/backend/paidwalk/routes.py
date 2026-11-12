@@ -82,7 +82,11 @@ def otp_verify():
                     rc = "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(7))
                     if not db.execute("SELECT 1 FROM users WHERE referral_code=?", (rc,)).fetchone():
                         break
-                db.execute("INSERT INTO users(phone,referral_code,created_at) VALUES(?,?,?)", (phone, rc, core.now()))
+                # Bootstrap: in sandbox, the very first account becomes admin,
+                # so the owner can reach the admin dashboard without a shell.
+                first_user = db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+                role = "admin" if (first_user and current_app.config.get("BOOTSTRAP_ADMIN")) else "user"
+                db.execute("INSERT INTO users(phone,referral_code,role,created_at) VALUES(?,?,?,?)", (phone, rc, role, core.now()))
                 u = db.execute("SELECT * FROM users WHERE phone=?", (phone,)).fetchone()
             token = secrets.token_urlsafe(32)
             dev = str(d.get("device_id") or "")[:80] or None

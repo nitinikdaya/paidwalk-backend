@@ -16,6 +16,7 @@ def create_app(config=None):
         SECRET_KEY=os.environ.get("PAIDWALK_SECRET", "dev-only-change-me"),
         SANDBOX=os.environ.get("PAIDWALK_SANDBOX", "1") == "1",   # sandbox: OTP shown on screen, payouts simulated
         PAYOUT_PROVIDER=os.environ.get("PAIDWALK_PAYOUT", "sandbox"),
+        BOOTSTRAP_ADMIN=os.environ.get("PAIDWALK_BOOTSTRAP_ADMIN", "0") == "1",  # first signup becomes admin
         SMS_SENDER=None,                                         # set to a function(phone, code) for real SMS
         MAX_CONTENT_LENGTH=256 * 1024,
     )
