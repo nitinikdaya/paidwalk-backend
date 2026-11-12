@@ -56,9 +56,14 @@ class Base(unittest.TestCase):
         self.assertEqual(s, 200)
 
     def walk(self, tok, steps, minutes=60, ago_min=None, source="health_connect", **extra):
-        """Submit one batch ending `ago_min` minutes ago (non-overlapping by default)."""
+        """Submit one batch ending `ago_min` minutes ago (non-overlapping by default).
+        Health batches default to GPS-verified outdoor movement so they can earn;
+        pass gps=False to simulate indoor/shaking."""
         self.n += 1
         self.seq += 1
+        if source in ("health_connect", "healthkit") and "gps" not in extra:
+            extra.setdefault("gps", True)
+            extra.setdefault("distance_m", round(steps * 0.7))
         end = self.clock - (ago_min if ago_min is not None else self.n * 130) * 60
         b = dict(client_batch_id="b%d" % self.seq, source=source, start_ts=end - minutes * 60, end_ts=end, steps=steps, **extra)
         s, r = self.call("POST", "/api/activity/batches", tok, batches=[b])
@@ -149,8 +154,19 @@ class RewardTests(Base):
 class FraudTests(Base):
     def test_impossible_cadence_is_capped_and_flagged(self):
         tok = self.login("9876543210", name="Walker1")
-        res, _ = self.walk(tok, 20000, minutes=10)             # 2,000 steps a minute
+        res, _ = self.walk(tok, 20000, minutes=10, gps=False)   # 2,000 steps a minute
         self.assertEqual((res["accepted_steps"], res["flags"]), (2000, ["impossible_cadence"]))
+
+    def test_shaking_without_gps_earns_nothing(self):
+        a = self.admin()
+        self.fund(a)
+        tok = self.login("9876543210", name="Walker1")
+        res, today = self.walk(tok, 10000, minutes=90, gps=False)   # lots of "steps", no movement
+        self.assertEqual(today["earned_today_paise"], 0)            # below the first milestone: shaking pays nothing
+        self.assertEqual(today["steps"], 10000)                     # still counts for rankings
+        # the same walk done outdoors with GPS does earn
+        res, today = self.walk(tok, 10000, minutes=90)
+        self.assertEqual(today["earned_today_paise"], 1000)
 
     def test_overlap_future_and_old_batches_rejected(self):
         tok = self.login("9876543210", name="Walker1")

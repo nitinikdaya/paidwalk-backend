@@ -19,6 +19,7 @@ WEIGHTS = {
     "daily_cap": 20,              # hit the daily step ceiling
     "abnormal_spike": 15,         # far above the user's own recent average
     "self_referral": 30,          # referrer and referee share a device
+    "stationary_steps": 20,       # GPS on but the phone did not move (shaking in place)
 }
 MAX_CADENCE = 220     # steps/min above this is flagged
 ACCEPT_CADENCE = 200  # ... and accepted steps are capped to this rate
@@ -87,7 +88,11 @@ def evaluate(db, user_id, b, shared_device_users):
         out["flags"].append(("manipulated_timestamp", "client reported clock change"))
     if gps_ok:
         speed = dist / (end - start)
-        if speed > MAX_SPEED:
+        if dist < 20 and steps > 300:
+            # GPS reported but the phone barely moved while "steps" piled up: shaking in place.
+            out["flags"].append(("stationary_steps", "%d steps over %.0f m" % (steps, dist)))
+            gps_ok = False
+        elif speed > MAX_SPEED:
             out["flags"].append(("impossible_speed", "%.1f m/s" % speed))
             gps_ok = False
         elif steps > 0 and not (0.3 <= dist / steps <= 2.5):

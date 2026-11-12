@@ -17,6 +17,9 @@ DEFAULTS = {
     "reward_sources": ["health_connect", "healthkit"],  # sources whose steps can earn money
     "risk_hold_threshold": 50,
     "daily_step_cap": 60000,
+    "gps_required_for_rewards": False,   # True = ONLY GPS-verified movement ever earns (strictest)
+    "min_gps_move_m": 100,               # a GPS batch must cover at least this to count as real movement
+    "indoor_daily_reward_steps": 2000,   # reward-steps/day allowed without GPS (below the first milestone, so shaking alone pays nothing)
     "referral_referrer_paise": 500,
     "referral_referee_paise": 200,
     "referral_days": 3,                 # referee needs this many days ...

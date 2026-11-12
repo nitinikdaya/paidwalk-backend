@@ -64,15 +64,32 @@ def ingest_batch(db, user, device_id, b):
             fraud.add_flag(db, uid, signal, detail, bid, day)
         if status == "accepted" and accepted > 0:
             minutes = (clean["end_ts"] - clean["start_ts"]) / 60.0
-            eligible = accepted if source in core.cfg(db, "reward_sources") else 0
             run_m = clean["distance_m"] if (kind == "run" and r["gps_ok"]) else 0
             walk_m = 0 if run_m else (clean["distance_m"] if r["gps_ok"] else accepted * 0.75)
             active = int(round(minutes)) if accepted / max(minutes, 1 / 6) >= 60 else 0
+            # ---- reward eligibility: pay only for real, GPS-verified movement ----
+            # Shaking the phone in place produces no displacement, so it earns nothing.
+            eligible, indoor_add = 0, 0
+            if source in core.cfg(db, "reward_sources"):
+                dist = clean["distance_m"]
+                gps_move = (r["gps_ok"] and isinstance(dist, (int, float))
+                            and dist >= core.cfg(db, "min_gps_move_m")
+                            and 0.3 <= dist / accepted <= 2.5)
+                if gps_move:
+                    eligible = accepted                       # verified outdoor walking/running
+                elif not core.cfg(db, "gps_required_for_rewards"):
+                    # small indoor allowance (treadmill/mall), capped per day so it can't be farmed
+                    cap = core.cfg(db, "indoor_daily_reward_steps")
+                    used = db.execute("SELECT indoor_reward_steps FROM daily_stats WHERE user_id=? AND day=?", (uid, day)).fetchone()
+                    used = used[0] if used else 0
+                    eligible = max(0, min(accepted, cap - used))
+                    indoor_add = eligible
             db.execute(
-                "INSERT INTO daily_stats(user_id,day,steps,reward_steps,raw_steps,walk_m,run_m,active_min) VALUES(?,?,?,?,?,?,?,?) "
+                "INSERT INTO daily_stats(user_id,day,steps,reward_steps,indoor_reward_steps,raw_steps,walk_m,run_m,active_min) VALUES(?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(user_id,day) DO UPDATE SET steps=steps+excluded.steps, reward_steps=reward_steps+excluded.reward_steps,"
+                " indoor_reward_steps=indoor_reward_steps+excluded.indoor_reward_steps,"
                 " raw_steps=raw_steps+excluded.raw_steps, walk_m=walk_m+excluded.walk_m, run_m=run_m+excluded.run_m, active_min=active_min+excluded.active_min",
-                (uid, day, accepted, eligible, clean["steps"], walk_m, run_m, active))
+                (uid, day, accepted, eligible, indoor_add, clean["steps"], walk_m, run_m, active))
             fraud.check_spike(db, uid, day)
             award_day(db, uid, day)
     return {"client_batch_id": cid, "status": status, "reason": r["reject"], "accepted_steps": accepted if status == "accepted" else 0,

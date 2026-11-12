@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS activity_batches(
 CREATE INDEX IF NOT EXISTS ix_batches_time ON activity_batches(user_id, start_ts, end_ts);
 CREATE TABLE IF NOT EXISTS daily_stats(
   user_id INTEGER NOT NULL REFERENCES users(id), day TEXT NOT NULL,
-  steps INTEGER NOT NULL DEFAULT 0, reward_steps INTEGER NOT NULL DEFAULT 0, raw_steps INTEGER NOT NULL DEFAULT 0,
+  steps INTEGER NOT NULL DEFAULT 0, reward_steps INTEGER NOT NULL DEFAULT 0, indoor_reward_steps INTEGER NOT NULL DEFAULT 0, raw_steps INTEGER NOT NULL DEFAULT 0,
   walk_m REAL NOT NULL DEFAULT 0, run_m REAL NOT NULL DEFAULT 0, active_min INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(user_id, day));
 CREATE INDEX IF NOT EXISTS ix_daily_day ON daily_stats(day);
